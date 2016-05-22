@@ -21,7 +21,7 @@ void check_connection(PGconn *connection);
 PGresult * run_query(PGconn *connection, const char *query);
 void check_query(PGconn *connection, PGresult *query_result);
 Table * create_table_with_query(PGresult *query_result);
-void print_query_result(PGconn *connection);
+void print_query_result(Table *table);
 void do_exit(PGconn *connection);
 
 int main(int argc, const char * argv[]) {
@@ -33,8 +33,8 @@ int main(int argc, const char * argv[]) {
     check_query(connection, db_names);
     
     Table *db_names_table = create_table_with_query(db_names);
-    printf("%d\n", db_names_table->number_of_columns);
-    printf("%d\n", db_names_table->number_of_rows);
+    print_query_result(db_names_table);
+
     
     
 /*    PGresult *res = PQexec(connection, "SELECT * FROM movimento");
@@ -117,6 +117,21 @@ Table * create_table_with_query(PGresult *query_result){
     table->number_of_columns = number_of_columns;
     
     return table;
+}
+
+void print_query_result(Table *table) {
+
+    printf("We received %d records.\n", table->number_of_rows);
+    puts("==========================");
+    
+    for (int row = 0; row < table->number_of_rows; row++) {
+        for (int column = 0; column < table->number_of_columns; column++) {
+            printf("%s\t", PQgetvalue(table->query_result, row, column));
+        }
+        puts("");
+    }
+    
+    puts("==========================");
 }
 
 /* Force an exit if any error was found */
