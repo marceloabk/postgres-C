@@ -40,6 +40,7 @@ void add_conection_to_array(PGconn *connection, PGconn *connections_array[NUMBER
 void add_result_to_array(PGresult *result, PGresult *result_array[NUMBER_OF_RESULTS]);
 void clear_all_results(PGresult *result_array[NUMBER_OF_RESULTS]);
 void close_all_connections(PGconn *connections_array[NUMBER_OF_CONNECTIONS]);
+char * add_db_names_to_array(Table *table);
 
 int main(int argc, const char * argv[]) {
     
@@ -70,11 +71,30 @@ int main(int argc, const char * argv[]) {
     Table db_names_table = create_table_with_query(db_names);
     print_query_result(db_names_table);
     
-    PGresult *create_db = run_query(postgres_connection, "CREATE DATABASE testDB;");
-    int is_create_db_query_fine = check_non_data_query(create_db);
-    if (is_create_db_query_fine != 0) {
-        do_exit(connections_array, results_array, is_create_db_query_fine);
+    
+    /* all db names in an array */
+    char **array_of_db_names = (char **)malloc(db_names_table.number_of_rows * sizeof(char **));
+   
+    for (int i = 0; i < db_names_table.number_of_rows; i++) {
+        array_of_db_names[i] = PQgetvalue(db_names, i, 0);
     }
+    
+    printf("\nwould you like to create the script of which database? ");
+    int selected_db = 0;
+    scanf("%d", &selected_db);
+    
+    printf("\nYou chose: %s\n", array_of_db_names[selected_db]);
+    
+//    for (int i = 0; i < db_names_table.number_of_rows; i++) {
+//        printf("%s\n", array_of_db_names[i]);
+//    }
+    
+//    
+//    PGresult *create_db = run_query(postgres_connection, "CREATE DATABASE testDB;");
+//    int is_create_db_query_fine = check_non_data_query(create_db);
+//    if (is_create_db_query_fine != 0) {
+//        do_exit(connections_array, results_array, is_create_db_query_fine);
+//    }
 
     
 //    /* getting table names */
@@ -227,3 +247,7 @@ void close_all_connections(PGconn *connections_array[NUMBER_OF_CONNECTIONS]) {
     }
     
 }
+
+//char * add_db_names_to_array(Table *table) {
+//    return;
+//}
