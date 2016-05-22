@@ -26,7 +26,8 @@ void do_exit(PGconn *connection);
 
 int main(int argc, const char * argv[]) {
     
-    PGconn *connection = create_connection();
+    
+    PGconn *connection = create_connection("host=localhost port=5432 user=postgres password=123 connect_timeout=10");
     check_connection(connection);
     
     PGresult *db_names = run_query(connection, "SELECT datname FROM pg_database WHERE datistemplate = false;");
@@ -34,6 +35,12 @@ int main(int argc, const char * argv[]) {
     
     Table *db_names_table = create_table_with_query(db_names);
     print_query_result(db_names_table);
+
+    
+    PGresult *tables = run_query(connection, "SELECT table_schema,table_name FROM information_schema.tables WHERE table_schema = \"public\" ORDER BY table_schema,table_name;");
+    check_query(connection, tables);
+    Table *tables_table = create_table_with_query(tables);
+    print_query_result(tables_table);
 
     
     
@@ -69,10 +76,10 @@ int main(int argc, const char * argv[]) {
     return 0;
 }
 
-/* creeate a connect with postgres */
-PGconn * create_connection() {
+/* create a connection to postgres */
+PGconn * create_connection(const char *connection_string) {
     
-    PGconn *connection = PQconnectdb("host=localhost port=5432 user=postgres password=123 connect_timeout=10");
+    PGconn *connection = PQconnectdb(connection_string);
     return connection;
 }
 
