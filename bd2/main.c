@@ -10,6 +10,14 @@
 #include <stdlib.h>
 #include "libpq-fe.h"
 
+/* ERROR TABLE
+ *
+ *   0 - Everything is fine
+ *  -1 - Connection error
+ *  -2 - Query error
+ *
+ */
+
 typedef struct table{
     PGresult *query_result;
     int number_of_rows;
@@ -20,12 +28,12 @@ typedef struct table{
 #define NUMBER_OF_RESULTS 20
 
 PGconn * create_connection();
-void check_connection(PGconn *connection);
+int check_connection(PGconn *connection);
 PGresult * run_query(PGconn *connection, const char *query);
-void check_query(PGconn *connection, PGresult *query_result);
+int check_query(PGconn *connection, PGresult *query_result);
 Table create_table_with_query(PGresult *query_result);
 void print_query_result(Table table);
-void do_exit(PGconn *connection);
+void do_exit(PGconn *connections_array[NUMBER_OF_CONNECTIONS],PGresult *result_array[NUMBER_OF_RESULTS], int error_code);
 void add_conection_to_array(PGconn *connection, PGconn *connections_array[NUMBER_OF_CONNECTIONS]);
 void add_result_to_array(PGresult *result, PGresult *result_array[NUMBER_OF_RESULTS]);
 void clear_all_results(PGresult *result_array[NUMBER_OF_RESULTS]);
@@ -40,15 +48,24 @@ int main(int argc, const char * argv[]) {
     
     
     /* connecting to postgres */
-    PGconn *postgres_connection = create_connection("host=localhost port=5432 user=postgres password=123 connect_timeout=10");
-    check_connection(postgres_connection);
+    PGconn *postgres_connection = create_connection("host=localhost port=5432 user=postgres password=123 connect_timeout=3");
+   
+    int is_postgres_connection_fine = check_connection(postgres_connection);
+    if (is_postgres_connection_fine != 0) {
+        do_exit(connections_array, results_array, is_postgres_connection_fine);
+    }
+    
     add_conection_to_array(postgres_connection, connections_array);
     
     
     
     /* getting db names */
     PGresult *db_names = run_query(postgres_connection, "SELECT datname FROM pg_database WHERE datistemplate = false;");
-    check_query(postgres_connection, db_names);
+    int is_db_names_query_fine = check_query(postgres_connection, db_names);
+    if (is_db_names_query_fine != 0) {
+        do_exit(connections_array, results_array, is_db_names_query_fine);
+    }
+    
     add_result_to_array(db_names, results_array);
     
     /* creating a table with db names */
@@ -108,14 +125,16 @@ PGconn * create_connection(const char *connection_string) {
 }
 
 /* check if successfully connected, if dont force a disconnect */
-void check_connection(PGconn *connection) {
+int check_connection(PGconn *connection) {
     
+    int is_connection_fine = 0;
     if (PQstatus(connection) == CONNECTION_BAD) {
         fprintf(stderr, "Connection to database failed: %s\n",
                 PQerrorMessage(connection));
-        do_exit(connection);
+        is_connection_fine = -1;
     }
     
+    return is_connection_fine;
 }
 
 /* run a query and return its result */
@@ -127,12 +146,15 @@ PGresult * run_query(PGconn *connection, const char *query) {
 
 
 /* check if query returned anything, if dont force a disconnect */
-void check_query(PGconn *connection, PGresult *query_result) {
+int check_query(PGconn *connection, PGresult *query_result) {
     
+    int is_query_fine = 0;
     if (PQresultStatus(query_result) != PGRES_TUPLES_OK) {
         puts("We did not get any data!");
-        do_exit(connection);
+        is_query_fine = -2;
     }
+    
+    return is_query_fine;
 }
 
 /* create a table with a query result */
@@ -166,10 +188,12 @@ void print_query_result(Table table) {
 }
 
 /* Force an exit if any error was found */
-void do_exit(PGconn *connection) {
+void do_exit(PGconn *connections_array[NUMBER_OF_CONNECTIONS],PGresult *result_array[NUMBER_OF_RESULTS], int error_code) {
+
+    clear_all_results(result_array);
+    close_all_connections(connections_array);
     
-    PQfinish(connection);
-    exit(1);
+    exit(error_code);
 }
 
 /* add a conection to an array with all conections */
