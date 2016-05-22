@@ -10,21 +10,31 @@
 #include <stdlib.h>
 #include "libpq-fe.h"
 
+typedef struct table{
+    PGresult *query_result;
+    int number_of_rows;
+    int number_of_columns;
+}Table;
+
 PGconn * create_connection();
 void check_connection(PGconn *connection);
 PGresult * run_query(PGconn *connection, const char *query);
 void check_query(PGconn *connection, PGresult *query_result);
+Table * create_table_with_query(PGresult *query_result);
+void print_query_result(PGconn *connection);
 void do_exit(PGconn *connection);
-
-
 
 int main(int argc, const char * argv[]) {
     
     PGconn *connection = create_connection();
     check_connection(connection);
     
-    PGresult *db_names = PQexec(connection, "SELECT datname FROM pg_database WHERE datistemplate = false;");
+    PGresult *db_names = run_query(connection, "SELECT datname FROM pg_database WHERE datistemplate = false;");
     check_query(connection, db_names);
+    
+    Table *db_names_table = create_table_with_query(db_names);
+    printf("%d\n", db_names_table->number_of_columns);
+    printf("%d\n", db_names_table->number_of_rows);
     
     
 /*    PGresult *res = PQexec(connection, "SELECT * FROM movimento");
@@ -92,6 +102,21 @@ void check_query(PGconn *connection, PGresult *query_result) {
         puts("We did not get any data!");
         do_exit(connection);
     }
+}
+
+/* create a table with a query result */
+Table * create_table_with_query(PGresult *query_result){
+    
+    int number_of_rows = PQntuples(query_result);
+    int number_of_columns = PQnfields(query_result);
+    
+    Table *table;
+    
+    table->query_result = query_result;
+    table->number_of_rows = number_of_rows;
+    table->number_of_columns = number_of_columns;
+    
+    return table;
 }
 
 /* Force an exit if any error was found */
