@@ -14,7 +14,8 @@
  *
  *   0 - Everything is fine
  *  -1 - Connection error
- *  -2 - Query error
+ *  -2 - Query with data error
+ *  -3 - Query without data error
  *
  */
 
@@ -30,7 +31,8 @@ typedef struct table{
 PGconn * create_connection();
 int check_connection(PGconn *connection);
 PGresult * run_query(PGconn *connection, const char *query);
-int check_query(PGconn *connection, PGresult *query_result);
+int check_non_data_query(PGresult *query_result);
+int check_data_query(PGresult *query_result);
 Table create_table_with_query(PGresult *query_result);
 void print_query_result(Table table);
 void do_exit(PGconn *connections_array[NUMBER_OF_CONNECTIONS],PGresult *result_array[NUMBER_OF_RESULTS], int error_code);
@@ -45,8 +47,6 @@ int main(int argc, const char * argv[]) {
     PGconn *connections_array[NUMBER_OF_CONNECTIONS] = {NULL};
     PGresult *results_array[NUMBER_OF_RESULTS] = {NULL};
     
-    
-    
     /* connecting to postgres */
     PGconn *postgres_connection = create_connection("host=localhost port=5432 user=postgres password=123 connect_timeout=3");
    
@@ -57,11 +57,9 @@ int main(int argc, const char * argv[]) {
     
     add_conection_to_array(postgres_connection, connections_array);
     
-    
-    
     /* getting db names */
     PGresult *db_names = run_query(postgres_connection, "SELECT datname FROM pg_database WHERE datistemplate = false;");
-    int is_db_names_query_fine = check_query(postgres_connection, db_names);
+    int is_db_names_query_fine = check_data_query(db_names);
     if (is_db_names_query_fine != 0) {
         do_exit(connections_array, results_array, is_db_names_query_fine);
     }
@@ -71,6 +69,12 @@ int main(int argc, const char * argv[]) {
     /* creating a table with db names */
     Table db_names_table = create_table_with_query(db_names);
     print_query_result(db_names_table);
+    
+    PGresult *create_db = run_query(postgres_connection, "CREATE DATABASE testDB;");
+    int is_create_db_query_fine = check_non_data_query(create_db);
+    if (is_create_db_query_fine != 0) {
+        do_exit(connections_array, results_array, is_create_db_query_fine);
+    }
 
     
 //    /* getting table names */
@@ -86,33 +90,6 @@ int main(int argc, const char * argv[]) {
 
     clear_all_results(results_array);
     close_all_connections(connections_array);
-    
-/*    PGresult *res = PQexec(connection, "SELECT * FROM movimento");
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        puts("We did not get any data!");
-        do_exit(connection);
-    }
-    
-    PGresult *number_of_collums = PQexec(connection, "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name   = 'movimento'");
-    
-    int rec_count = PQntuples(res);
-    int colluns_count = PQnfields(res);
-    
-    printf("We received %d records.\n", rec_count);
-    puts("==========================");
-    
-    for (int row=0; row<rec_count; row++) {
-        for (int col=0; col<colluns_count; col++) {
-            printf("%s\t", PQgetvalue(res, row, col));
-         }
-         puts("");
-    }
-    
-    puts("==========================");
-    
-    PQclear(res);
- */
         
     return 0;
 }
@@ -146,7 +123,7 @@ PGresult * run_query(PGconn *connection, const char *query) {
 
 
 /* check if query returned anything, if dont force a disconnect */
-int check_query(PGconn *connection, PGresult *query_result) {
+int check_data_query(PGresult *query_result) {
     
     int is_query_fine = 0;
     if (PQresultStatus(query_result) != PGRES_TUPLES_OK) {
@@ -156,6 +133,19 @@ int check_query(PGconn *connection, PGresult *query_result) {
     
     return is_query_fine;
 }
+
+
+int check_non_data_query(PGresult *query_result) {
+    
+    int is_query_fine = 0;
+    if (PQresultStatus(query_result) != PGRES_COMMAND_OK) {
+        puts("Probrem trying to execute given command !");
+        is_query_fine = -3;
+    }
+    
+    return is_query_fine;
+}
+
 
 /* create a table with a query result */
 Table create_table_with_query(PGresult *query_result){
