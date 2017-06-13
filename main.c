@@ -1,11 +1,3 @@
-//
-//  main.c
-//  bd2
-//
-//  Created by Marcelo Cristiano Araujo Silva on 22/05/16.
-//  Copyright © 2016 marcelo. All rights reserved.
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <libpq-fe.h>
